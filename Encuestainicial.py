@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import time
 from collections import Counter
+from wordcloud import WordCloud  # <-- Nueva librería para la Nube de Palabras
 
 # ==========================================
 # 1. CONFIGURACIÓN DE LA PÁGINA
@@ -13,7 +14,6 @@ st.set_page_config(page_title="Cyber & AI - Baseline Assessment", page_icon="�
 # ==========================================
 @st.cache_resource
 def get_db():
-    # Estructura para almacenar todas las respuestas
     return {
         "palabras_clave": [],
         "skills_cyber": [],
@@ -85,15 +85,12 @@ if modo == "👨‍🎓 Modo Estudiante (Votar)":
         
         reto = st.text_area("8. ¿Cuál es el principal desafío de ciberseguridad en tu trabajo que esperas resolver usando IA? (Opcional)")
 
-        # Botón de envío
         submitted = st.form_submit_button("Enviar mis respuestas 🚀")
 
         if submitted:
-            # Validación simple para que no envíen radios vacíos
             if None in [framework, anomaly, adversarial, llm_vuln, impacto]:
                 st.error("⚠️ Por favor, responde todas las preguntas de opción múltiple antes de enviar.")
             else:
-                # Guardar datos en memoria
                 if palabra.strip(): db["palabras_clave"].append(palabra.strip().title())
                 
                 db["skills_cyber"].append(cyber)
@@ -127,17 +124,25 @@ elif modo == "👨‍🏫 Modo Profesor (Resultados en Vivo)":
     if total_respuestas > 0:
         st.divider()
         
-        # --- SECCIÓN 1: PALABRAS CLAVE Y SKILLS ---
+        # --- SECCIÓN 1: PALABRAS CLAVE (NUBE) Y SKILLS ---
         st.header("1. El Perfil de la Clase")
         c1, c2 = st.columns(2)
         
         with c1:
-            st.subheader("💡 ¿Qué es la IA en Ciberseguridad?")
+            st.subheader("💡 Nube de Palabras: IA en Ciberseguridad")
             if db["palabras_clave"]:
-                # Contar frecuencias y mostrar como tabla limpia
+                # 1. Contar frecuencias
                 conteo_palabras = Counter(db["palabras_clave"])
-                df_palabras = pd.DataFrame(conteo_palabras.items(), columns=["Concepto", "Menciones"]).sort_values(by="Menciones", ascending=False)
-                st.dataframe(df_palabras, use_container_width=True, hide_index=True)
+                
+                # 2. Generar la Nube de Palabras usando las frecuencias (para mantener frases juntas)
+                wc = WordCloud(width=800, 
+                               height=400, 
+                               background_color='white', 
+                               colormap='copper', # Paleta de colores parecida a tu imagen (terrosos)
+                               max_words=100).generate_from_frequencies(conteo_palabras)
+                
+                # 3. Mostrar la imagen generada en Streamlit
+                st.image(wc.to_array(), use_container_width=True)
             else:
                 st.write("Aún no hay palabras registradas.")
 
@@ -156,7 +161,7 @@ elif modo == "👨‍🏫 Modo Profesor (Resultados en Vivo)":
 
         st.divider()
 
-        # --- SECCIÓN 2: PREGUNTAS TÉCNICAS (4 columnas para pantallas anchas) ---
+        # --- SECCIÓN 2: PREGUNTAS TÉCNICAS ---
         st.header("2. Conocimientos Técnicos Core")
         col_t1, col_t2 = st.columns(2)
         
@@ -199,11 +204,10 @@ elif modo == "👨‍🏫 Modo Profesor (Resultados en Vivo)":
             else:
                 st.write("Sin respuestas aún.")
             
-        # Botón de reset (Oculto al final)
         st.divider()
         if st.button("🗑️ Limpiar todos los datos (Reiniciar clase)"):
             db.clear()
-            db.update(get_db.__wrapped__()) # Reinicia la caché al estado original
+            db.update(get_db.__wrapped__()) 
             st.rerun()
             
     else:
